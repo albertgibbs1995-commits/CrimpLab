@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<!-- Declare HTML5 document -->
+<html lang="en">
+<head>
+  <!-- Standard UTF-8 character encoding -->
+  <meta charset="UTF-8" />
+  <!-- Lock viewport to device width and disable pinch-zoom for native app feel -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- Browser address bar color on Android/iOS -->
+  <meta name="theme-color" content="#0f172a" />
+  <!-- Enable standalone full-screen mode when added to iOS home screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <!-- Dark translucent status bar on iOS -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- App title -->
+  <title>CrimpLab — Hangboard Trainer</title>
+
+  <style>
+    /* =========================================================================
+       1. CSS VARIABLES (THEME TOKENS)
+       ========================================================================= */
+    :root {
+      --bg: #0f172a;              /* Main dark slate background */
+      --surface: #1e293b;         /* Card and container background */
+      --surface-light: #334155;   /* Borders and secondary buttons */
+      --text: #f8fafc;            /* Primary text color */
+      --text-muted: #94a3b8;      /* Secondary/helper text color */
+      --primary: #f97316;         /* Accent orange for primary actions */
+      --success: #22c55e;         /* Green for Easy tier & Hang phase */
+      --warning: #eab308;         /* Yellow for Moderate tier & Prep phase */
+      --danger: #ef4444;          /* Red for Extreme tier & Delete actions */
+      --info: #38bdf8;            /* Blue for Rest phase */
+      --radius: 14px;             /* Standard border radius */
+    }
+
+    /* Reset box-sizing, margins, padding, and tap highlight */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    /* Base body styling centered for mobile-first layout */
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Main app wrapper capped at mobile width */
+    #app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      position: relative;
+      padding-bottom: 84px; /* Space for fixed bottom nav */
+    }
+
+    /* Sticky top header */
+    header {
+      padding: 14px 16px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid var(--surface);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* App logo text */
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    /* Accent color on second half of logo */
+    header h1 span {
+      color: var(--primary);
+    }
+
+    /* Right side of header holding board badge and profile pill */
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Pill showing active board or user */
+    .badge-pill {
+      background: var(--surface);
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--primary);
+      border: 1px solid var(--surface-light);
+      max-width: 150px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Secondary pill for username */
+    .badge-pill.user-pill {
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    /* Main scrollable content area */
+    main {
+      padding: 14px;
+      flex: 1;
+    }
+
+    /* Hide inactive views */
+    .view {
+      display: none;
+      animation: fadeIn 0.18s ease-out;
+    }
+
+    /* Show active view */
+    .view.active {
+      display: block;
+    }
+
+    /* Subtle fade-in transition between tabs */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* =========================================================================
+       2. HANGBOARD SVG STAGE & INSPECTOR
+       ========================================================================= */
+    .board-stage {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 14px;
+      border: 1px solid var(--surface-light);
+      box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Responsive SVG container */
+    .board-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 8px;
+    }
+
+    /* Smooth highlight transition on holds */
+    .hold-shape {
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    /* Active hold highlight during workouts */
+    .hold-active {
+      fill: var(--primary) !important;
+      stroke: #ffffff !important;
+      stroke-width: 2.5px !important;
+      filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.85));
+    }
+
+    /* Inline hold inspector bar below the board */
+    .inspect-banner {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+      border: 1px solid var(--surface-light);
+    }
+
+    /* =========================================================================
+       3. FILTER MENU (WRAPPING TOUCH-FRIENDLY PILLS)
+       ========================================================================= */
+    .filter-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    /* Touch-friendly 44px minimum height pill buttons */
+    .filter-pill {
+      min-height: 44px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--surface-light);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    /* Active filter pill state */
+    .filter-pill.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    /* =========================================================================
+       4. CARDS, SIMPLIFIED WORKOUT LAYOUT & DIFFICULTY BADGES
+       ========================================================================= */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+      border: 1px solid var(--surface-light);
+    }
+
+    /* Card top row: title + badge */
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    /* Card title text */
+    .card-title {
+      font-size: 0.98rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    /* Compact single-line metadata on workout cards */
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin: 4px 0 10px;
+    }
+
+    /* Collapsible details drawer on workout cards */
+    .card-details {
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+    }
+
+    /* Summary toggle text */
+    .card-details summary {
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    /* Action button row on workout cards */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Base tag/badge styling */
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--surface-light);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    /* Difficulty tier colors */
+    .diff-easy { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .diff-moderate { background: rgba(234, 179, 8, 0.2); color: var(--warning); }
+    .diff-hard { background: rgba(249, 115, 22, 0.2); color: var(--primary); }
+    .diff-extreme { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+    /* Muted paragraph text */
+    p.muted {
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    /* =========================================================================
+       5. BUTTONS & FORM CONTROLS
+       ========================================================================= */
+    .btn {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      touch-action: manipulation;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.1s;
+    }
+
+    /* Subtle press feedback */
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary { background: var(--primary); color: #ffffff; }
+    .btn-secondary { background: var(--surface-light); color: var(--text); }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-icon { width: 46px; flex-shrink: 0; font-size: 1.1rem; }
+    .btn-sm { min-height: 34px; padding: 6px 10px; font-size: 0.78rem; width: auto; }
+
+    /* Form field wrapper */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    /* Form labels */
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    /* Text, password, number inputs and selects */
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    select {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--surface-light);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.92rem;
+    }
+
+    /* Range slider container */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      accent-color: var(--primary);
+      height: 6px;
+    }
+
+    /* Live value pill next to sliders */
+    .val-pill {
+      min-width: 54px;
+      text-align: center;
+      background: var(--bg);
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* Two-column grid helper */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    /* List item row inside builders */
+    .list-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: var(--bg);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-size: 0.84rem;
+      gap: 8px;
+    }
+
+    /* Section heading helper */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 800;
+      margin: 14px 0 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* =========================================================================
+       6. ACTIVE TIMER DISPLAY
+       ========================================================================= */
+    .timer-display {
+      text-align: center;
+      padding: 22px 14px;
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+      transition: background-color 0.25s, border-color 0.25s;
+    }
+
+    .state-prep { background: rgba(234, 179, 8, 0.15); border: 2px solid var(--warning); }
+    .state-hang { background: rgba(34, 197, 94, 0.2); border: 2px solid var(--success); }
+    .state-rest { background: rgba(56, 189, 248, 0.15); border: 2px solid var(--info); }
+    .state-done { background: rgba(249, 115, 22, 0.2); border: 2px solid var(--primary); }
+
+    .timer-phase {
+      font-size: 1.05rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .timer-clock {
+      font-size: 4.2rem;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+      margin: 6px 0;
+    }
+
+    .timer-instruction {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .timer-meta {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .timer-meta strong {
+      color: var(--text);
+      display: block;
+      font-size: 0.95rem;
+      margin-top: 2px;
+    }
+
+    /* =========================================================================
+       7. FIXED BOTTOM NAVIGATION BAR
+       ========================================================================= */
+    nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      max-width: 480px;
+      background: rgba(30, 41, 59, 0.96);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--surface-light);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+      z-index: 30;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 4px 0;
+      touch-action: manipulation;
+    }
+
+    .nav-btn.active {
+      color: var(--primary);
+    }
+
+    .nav-btn svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <!-- =======================================================================
+         TOP HEADER
+         ======================================================================= -->
+    <header>
+      <h1>Crimp<span>Lab</span></h1>
+      <div class="header-right">
+        <div class="badge-pill" id="active-board-label">Beastmaker 1000</div>
+        <div class="badge-pill user-pill" id="header-user-pill">Guest</div>
+      </div>
+    </header>
+
+    <main>
+      <!-- =====================================================================
+           VIEW 1: WORKOUTS (HOME)
+           ===================================================================== -->
+      <section id="view-workouts" class="view active">
+        <!-- Interactive Hangboard Blueprint -->
+        <div class="board-stage">
+          <div id="workout-board-svg"></div>
+          <div class="inspect-banner" id="hold-inspector">
+            Tap any hold on the board to inspect depth, fingers &amp; spacing
+          </div>
+        </div>
+
+        <!-- Wrapping Touch-Friendly Category Filter Menu -->
+        <div class="filter-grid" id="workout-filters">
+          <button class="filter-pill active" data-filter="all">All</button>
+          <button class="filter-pill" data-filter="warmup">Warmup</button>
+          <button class="filter-pill" data-filter="max">High Intensity</button>
+          <button class="filter-pill" data-filter="repeaters">High Rep</button>
+          <button class="filter-pill" data-filter="short">Short (&lt;15m)</button>
+          <button class="filter-pill" data-filter="long">Long (25m+)</button>
+          <button class="filter-pill" data-filter="one-arm">1-Hand</button>
+          <button class="filter-pill" data-filter="favorites">★ Saved</button>
+        </div>
+
+        <!-- Generated + Custom Workout Cards -->
+        <div id="workout-list"></div>
+      </section>
+
+      <!-- =====================================================================
+           VIEW 2: ACTIVE WORKOUT TIMER
+           ===================================================================== -->
+      <section id="view-timer" class="view">
+        <!-- Live Board Highlighting Active Hold -->
+        <div class="board-stage">
+          <div id="timer-board-svg"></div>
+        </div>
+
+        <!-- Countdown Display -->
+        <div id="timer-box" class="timer-display state-prep">
+          <div class="timer-phase" id="t-phase">GET READY</div>
+          <div class="timer-clock" id="t-clock">00:05</div>
+          <div class="timer-instruction" id="t-instruction">Chalk up</div>
+          <div class="timer-meta">
+            <div>Set <strong id="t-set">1 / 1</strong></div>
+            <div>Rep <strong id="t-rep">1 / 1</strong></div>
+            <div>Grip <strong id="t-grip">2-Arm Half Crimp</strong></div>
+          </div>
+        </div>
+
+        <!-- Timer Controls -->
+        <div class="grid-2">
+          <button class="btn btn-primary" id="btn-timer-toggle">Pause</button>
+          <button class="btn btn-secondary" id="btn-timer-skip">Skip Step</button>
+        </div>
+        <button class="btn btn-danger" id="btn-timer-exit" style="margin-top: 10px;">End Workout</button>
+      </section>
+
+      <!-- =====================================================================
+           VIEW 3: CREATE CUSTOM WORKOUT
+           ===================================================================== -->
+      <section id="view-create" class="view">
+        <div class="section-title">
+          <span>Custom Workout Builder</span>
+          <span class="tag" id="cw-live-diff">Easy · 1.0</span>
+        </div>
+
+        <div class="card">
+          <div class="form-group">
+            <label for="cw-title">Workout Name</label>
+            <input type="text" id="cw-title" placeholder="e.g., My 20mm Power Session" />
+          </div>
+
+          <div class="form-group">
+            <label for="cw-category">Category</label>
+            <select id="cw-category">
+              <option value="warmup">Warmup</option>
+              <option value="max">High Intensity</option>
+              <option value="repeaters">High Rep</option>
+              <option value="endurance">Long Endurance</option>
+            </select>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--surface-light); margin: 14px 0;" />
+
+          <!-- Block Builder Controls -->
+          <div class="form-group">
+            <label for="cw-hold">Select Hold (from Active Board)</label>
+            <select id="cw-hold"></select>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="cw-arms">Arms Used</label>
+              <select id="cw-arms">
+                <option value="2-arm">2-Arm</option>
+                <option value="1-arm">1-Arm (L &amp; R)</option>
+                <option value="1-arm-left">Left Arm Only</option>
+                <option value="1-arm-right">Right Arm Only</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="cw-fingers">Fingers</label>
+              <select id="cw-fingers">
+                <option value="4">4 Fingers</option>
+                <option value="3">3 Fingers</option>
+                <option value="2">2 Fingers</option>
+                <option value="1">1 Finger (Mono)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="cw-sets">Sets</label>
+              <input type="number" id="cw-sets" value="3" min="1" max="12" />
+            </div>
+            <div class="form-group">
+              <label for="cw-reps">Reps / Set</label>
+              <input type="number" id="cw-reps" value="4" min="1" max="20" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="cw-hang">Hang (sec)</label>
+              <input type="number" id="cw-hang" value="7" min="2" max="60" />
+            </div>
+            <div class="form-group">
+              <label for="cw-rest">Rep Rest (sec)</label>
+              <input type="number" id="cw-rest" value="3" min="0" max="120" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="cw-set-rest">Rest Between Sets (sec)</label>
+            <input type="number" id="cw-set-rest" value="120" min="10" max="300" />
+          </div>
+
+          <button class="btn btn-secondary" id="btn-add-cw-block">+ Add Block</button>
+
+          <!-- Added Blocks List -->
+          <div id="cw-blocks-list" style="margin-top: 12px;"></div>
+
+          <button class="btn btn-primary" id="btn-save-cw" style="margin-top: 12px;">Save Custom Workout</button>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VIEW 4: BOARDS & CUSTOM BOARD BUILDER
+           ===================================================================== -->
+      <section id="view-boards" class="view">
+        <div class="section-title">
+          <span>Select Hangboard</span>
+        </div>
+        <div id="board-selector-list"></div>
+
+        <div class="section-title" style="margin-top: 20px;">
+          <span>Create Custom Board</span>
+        </div>
+
+        <div class="card">
+          <div class="form-group">
+            <label for="cb-name">Board Name</label>
+            <input type="text" id="cb-name" placeholder="e.g., Home Woodie Board" />
+          </div>
+
+          <!-- Live Custom Board SVG Preview -->
+          <div class="board-stage" style="background: var(--bg); padding: 10px;">
+            <div id="builder-preview-svg"></div>
+          </div>
+
+          <!-- Advanced Shape Editor (Collapsible) -->
+          <details class="card-details" style="background: var(--bg); padding: 10px; border-radius: 10px; border: 1px solid var(--surface-light);">
+            <summary>Advanced Board Shape &amp; Material</summary>
+            <div class="grid-2" style="margin-top: 8px;">
+              <div class="form-group">
+                <label for="cb-shape">Silhouette</label>
+                <select id="cb-shape">
+                  <option value="rect">Classic Rectangle</option>
+                  <option value="arch">Curved Top Arch</option>
+                  <option value="taper">Tapered Sides</option>
+                  <option value="ergo">Ergonomic Cutout</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="cb-material">Material</label>
+                <select id="cb-material">
+                  <option value="wood">Wood Grain</option>
+                  <option value="resin">Granite Resin</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Corner Roundness</label>
+              <div class="slider-row">
+                <input type="range" id="cb-radius" min="4" max="32" value="14" />
+                <span class="val-pill" id="val-cb-radius">14px</span>
+              </div>
+            </div>
+          </details>
+
+          <!-- Hold Placement Controls -->
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="hold-row">Row</label>
+              <select id="hold-row">
+                <option value="0">Top Row</option>
+                <option value="1">Middle Row</option>
+                <option value="2">Bottom Row</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="hold-layout">Layout</label>
+              <select id="hold-layout">
+                <option value="pair">Symmetric Pair</option>
+                <option value="center">Single Center</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Hold Depth (mm)</label>
+            <div class="slider-row">
+              <input type="range" id="hold-depth" min="6" max="45" value="20" />
+              <span class="val-pill" id="val-depth">20mm</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Hold Width (Fingers)</label>
+            <div class="slider-row">
+              <input type="range" id="hold-width" min="30" max="160" value="110" />
+              <span class="val-pill" id="val-width">4F</span>
+            </div>
+          </div>
+
+          <div class="form-group" id="spacing-group">
+            <label>Center-to-Center Spacing</label>
+            <div class="slider-row">
+              <input type="range" id="hold-spacing" min="140" max="420" value="300" />
+              <span class="val-pill" id="val-spacing">30cm</span>
+            </div>
+          </div>
+
+          <button class="btn btn-secondary" id="btn-add-hold">+ Add Hold</button>
+          <div id="custom-holds-list" style="margin-top: 12px;"></div>
+          <button class="btn btn-primary" id="btn-save-board" style="margin-top: 12px;">Save Custom Board</button>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VIEW 5: LOCAL PROFILE (USERNAME + PASSWORD ONLY)
+           ===================================================================== -->
+      <section id="view-profile" class="view">
+        <!-- Auth Card (Shown when logged out) -->
+        <div id="profile-auth-card" class="card">
+          <div class="section-title" style="margin-top: 0;">Local Profile Login</div>
+          <p class="muted" style="margin-bottom: 12px;">
+            Stored only on this device. No personal data collected.
+          </p>
+          <div class="form-group">
+            <label for="auth-user">Username</label>
+            <input type="text" id="auth-user" placeholder="Enter username" autocomplete="username" />
+          </div>
+          <div class="form-group">
+            <label for="auth-pass">Password</label>
+            <input type="password" id="auth-pass" placeholder="Enter password" autocomplete="current-password" />
+          </div>
+          <div class="grid-2">
+            <button class="btn btn-primary" id="btn-login">Log In</button>
+            <button class="btn btn-secondary" id="btn-register">Create Profile</button>
+          </div>
+          <p id="auth-msg" class="muted" style="margin-top: 10px; color: var(--primary);"></p>
+        </div>
+
+        <!-- Logged-In Dashboard -->
+        <div id="profile-dashboard" style="display: none;">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title" id="prof-username">Climber</span>
+              <button class="btn btn-danger btn-sm" id="btn-logout">Log Out</button>
+            </div>
+            <div class="card-meta" id="prof-stats"></div>
+          </div>
+
+          <div class="section-title">Completed Workouts</div>
+          <div id="prof-completed-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- =======================================================================
+         BOTTOM 4-TAB NAVIGATION
+         ======================================================================= -->
+    <nav id="bottom-nav">
+      <!-- Workouts Tab -->
+      <button class="nav-btn active" data-view="workouts">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/></svg>
+        <span>Workouts</span>
+      </button>
+
+      <!-- Create Workout Tab -->
+      <button class="nav-btn" data-view="create">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+        <span>Create</span>
+      </button>
+
+      <!-- Boards Tab (Custom Hangboard Silhouette Icon) -->
+      <button class="nav-btn" data-view="boards">
+        <svg viewBox="0 0 24 24">
+          <rect x="2" y="5" width="20" height="14" rx="3"/>
+          <line x1="5" y1="9" x2="9" y2="9"/>
+          <line x1="15" y1="9" x2="19" y2="9"/>
+          <line x1="5" y1="14" x2="10" y2="14"/>
+          <line x1="14" y1="14" x2="19" y2="14"/>
+        </svg>
+        <span>Boards</span>
+      </button>
+
+      <!-- Profile Tab -->
+      <button class="nav-btn" data-view="profile">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        <span>Profile</span>
+      </button>
+    </nav>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. PRE-LOADED HANGBOARD DATABASE
+       ========================================================================= */
+    const PRESET_BOARDS = [
+      {
+        id: 'bm1000',
+        name: 'Beastmaker 1000',
+        brand: 'Beastmaker',
+        shape: 'arch',
+        material: 'wood',
+        radius: 14,
+        holds: [
+          { id: 'jugs', label: 'Top Jugs', row: 0, layout: 'pair', depth: 40, width: 120, spacing: 350, fingers: 4 },
+          { id: 'sloper35', label: '35° Slopers', row: 0, layout: 'pair', depth: 32, width: 105, spacing: 140, fingers: 4 },
+          { id: 'deep4', label: 'Deep 4-Finger', row: 1, layout: 'pair', depth: 30, width: 100, spacing: 360, fingers: 4 },
+          { id: 'mid4', label: 'Outer 4-Finger', row: 1, layout: 'pair', depth: 20, width: 100, spacing: 165, fingers: 4 },
+          { id: 'center4', label: 'Center Deep', row: 1, layout: 'center', depth: 35, width: 90, spacing: 0, fingers: 4 },
+          { id: 'small4', label: 'Bottom Edge', row: 2, layout: 'pair', depth: 15, width: 95, spacing: 355, fingers: 4 },
+          { id: 'pocket3', label: '3-Finger Pocket', row: 2, layout: 'pair', depth: 22, width: 68, spacing: 180, fingers: 3 },
+          { id: 'pocket2', label: '2-Finger Pocket', row: 2, layout: 'center', depth: 24, width: 52, spacing: 0, fingers: 2 }
+        ]
+      },
+      {
+        id: 'bm2000',
+        name: 'Beastmaker 2000',
+        brand: 'Beastmaker',
+        shape: 'arch',
+        material: 'wood',
+        radius: 14,
+        holds: [
+          { id: 'sloper45', label: '45° Slopers', row: 0, layout: 'pair', depth: 28, width: 115, spacing: 355, fingers: 4 },
+          { id: 'sloper30', label: '30° Slopers', row: 0, layout: 'pair', depth: 34, width: 105, spacing: 145, fingers: 4 },
+          { id: 'mid4', label: 'Medium 4-Finger', row: 1, layout: 'pair', depth: 18, width: 98, spacing: 360, fingers: 4 },
+          { id: 'incut3', label: '3-Finger Drag', row: 1, layout: 'pair', depth: 22, width: 70, spacing: 170, fingers: 3 },
+          { id: 'centerjug', label: 'Center Warmup', row: 1, layout: 'center', depth: 32, width: 88, spacing: 0, fingers: 4 },
+          { id: 'micro4', label: 'Small 4-Finger', row: 2, layout: 'pair', depth: 12, width: 92, spacing: 355, fingers: 4 },
+          { id: 'back2', label: '2-Finger Pocket', row: 2, layout: 'pair', depth: 18, width: 50, spacing: 180, fingers: 2 },
+          { id: 'mono', label: 'Center Mono', row: 2, layout: 'center', depth: 25, width: 32, spacing: 0, fingers: 1 }
+        ]
+      },
+      {
+        id: 'tension-grindstone',
+        name: 'Tension Grindstone Mk2',
+        brand: 'Tension',
+        shape: 'rect',
+        material: 'wood',
+        radius: 10,
+        holds: [
+          { id: 'jug', label: 'Top Jugs', row: 0, layout: 'pair', depth: 38, width: 135, spacing: 335, fingers: 4 },
+          { id: 'c25', label: '25mm Edge', row: 1, layout: 'pair', depth: 25, width: 110, spacing: 345, fingers: 4 },
+          { id: 'c20', label: '20mm Edge', row: 1, layout: 'pair', depth: 20, width: 100, spacing: 140, fingers: 4 },
+          { id: 'c15', label: '15mm Edge', row: 2, layout: 'pair', depth: 15, width: 110, spacing: 345, fingers: 4 },
+          { id: 'c10', label: '10mm Micro Edge', row: 2, layout: 'pair', depth: 10, width: 100, spacing: 140, fingers: 4 },
+          { id: 'center15', label: 'Center 15mm', row: 2, layout: 'center', depth: 15, width: 82, spacing: 0, fingers: 4 }
+        ]
+      },
+      {
+        id: 'lattice-triple',
+        name: 'Lattice Triple Rung',
+        brand: 'Lattice',
+        shape: 'taper',
+        material: 'wood',
+        radius: 8,
+        holds: [
+          { id: 'r30', label: '30mm Warmup Rung', row: 0, layout: 'pair', depth: 30, width: 170, spacing: 255, fingers: 4 },
+          { id: 'r20', label: '20mm Assessment', row: 1, layout: 'pair', depth: 20, width: 170, spacing: 255, fingers: 4 },
+          { id: 'r10', label: '10mm Max Rung', row: 2, layout: 'pair', depth: 10, width: 170, spacing: 255, fingers: 4 }
+        ]
+      },
+      {
+        id: 'metolius-sim3d',
+        name: 'Metolius Simulator 3D',
+        brand: 'Metolius',
+        shape: 'ergo',
+        material: 'resin',
+        radius: 18,
+        holds: [
+          { id: 'mjug', label: 'Top Jugs', row: 0, layout: 'pair', depth: 42, width: 130, spacing: 345, fingers: 4 },
+          { id: 'mslope', label: 'Center Sloper', row: 0, layout: 'center', depth: 35, width: 115, spacing: 0, fingers: 4 },
+          { id: 'medge25', label: 'Deep 4-Finger', row: 1, layout: 'pair', depth: 25, width: 105, spacing: 355, fingers: 4 },
+          { id: 'mpock3', label: '3-Finger Pocket', row: 1, layout: 'pair', depth: 20, width: 72, spacing: 165, fingers: 3 },
+          { id: 'medge14', label: 'Small Crimp', row: 2, layout: 'pair', depth: 14, width: 95, spacing: 350, fingers: 4 },
+          { id: 'mpock2', label: '2-Finger Pocket', row: 2, layout: 'pair', depth: 18, width: 52, spacing: 170, fingers: 2 }
+        ]
+      }
+    ];
+
+    /* =========================================================================
+       2. LOCAL STORAGE & PROFILE STATE
+       ========================================================================= */
+    // Load all saved profiles dictionary from localStorage
+    let profiles = JSON.parse(localStorage.getItem('cl_profiles') || '{}');
+    // Load remembered logged-in username (null if guest)
+    let currentUser = localStorage.getItem('cl_current_user') || null;
+    // Active filter on Workouts tab
+    let activeFilter = 'all';
+    // Active hangboard ID
+    let activeBoardId = localStorage.getItem('cl_active_board') || 'bm1000';
+    // Temporary arrays for custom board & workout builders
+    let builderHolds = [];
+    let customWorkoutBlocks = [];
+
+    // Helper: get current user's profile data object (or guest fallback)
+    function getProfileData() {
+      if (currentUser && profiles[currentUser]) {
+        return profiles[currentUser];
+      }
+      // Guest data stored separately in localStorage
+      if (!profiles._guest) {
+        profiles._guest = { password: '', customBoards: [], customWorkouts: [], favWorkouts: [], favBoards: [], completed: [] };
+      }
+      return profiles._guest;
+    }
+
+    // Persist profiles dictionary to localStorage
+    function saveProfiles() {
+      localStorage.setItem('cl_profiles', JSON.stringify(profiles));
+    }
+
+    // Return preset + user's custom boards
+    function getAllBoards() {
+      return [...PRESET_BOARDS, ...(getProfileData().customBoards || [])];
+    }
+
+    // Return currently selected board object
+    function getActiveBoard() {
+      return getAllBoards().find(b => b.id === activeBoardId) || PRESET_BOARDS[0];
+    }
+
+    /* =========================================================================
+       3. PARAMETRIC SVG HANGBOARD RENDERER (SILHOUETTES & TEXTURES)
+       ========================================================================= */
+    function renderBoardSVG(board, activeHoldIds = []) {
+      const w = 500;
+      const h = 190;
+      const rowY = [28, 82, 136];
+      const holdH = 30;
+      const r = board.radius || 14;
+
+      // Determine board outer silhouette path
+      let outlinePath = '';
+      if (board.shape === 'arch') {
+        outlinePath = `M ${r},24 Q ${w/2},2 ${w-r},24 L ${w-4},${h-r} Q ${w-4},${h-4} ${w-r},${h-4} L ${r},${h-4} Q 4,${h-4} 4,${h-r} Z`;
+      } else if (board.shape === 'taper') {
+        outlinePath = `M 24,8 L ${w-24},8 L ${w-4},${h-8} L 4,${h-8} Z`;
+      } else if (board.shape === 'ergo') {
+        outlinePath = `M ${r},10 L ${w-r},10 Q ${w-4},10 ${w-4},${r+10} L ${w-10},${h-14} Q ${w/2},${h-32} 10,${h-14} L 4,${r+10} Q 4,10 ${r},10 Z`;
+      } else {
+        outlinePath = `M ${r},6 L ${w-r},6 Q ${w-4},6 ${w-4},${r+6} L ${w-4},${h-r} Q ${w-4},${h-4} ${w-r},${h-4} L ${r},${h-4} Q 4,${h-4} 4,${h-r} L 4,${r+6} Q 4,6 ${r},6 Z`;
+      }
+
+      // Material gradient & stroke colors
+      const isResin = board.material === 'resin';
+      const fillRef = isResin ? 'url(#resinGrad)' : 'url(#woodGrad)';
+      const strokeColor = isResin ? '#475569' : '#8c6239';
+
+      // Build SVG markup for each hold
+      let holdsMarkup = '';
+      (board.holds || []).forEach(hold => {
+        const isActive = activeHoldIds.includes(hold.id);
+        // Deeper holds render darker for visual depth cue
+        const lightness = Math.max(14, 52 - hold.depth);
+        const holdFill = isResin ? `hsl(215, 20%, ${lightness}%)` : `hsl(24, 34%, ${lightness}%)`;
+        const cls = isActive ? 'hold-shape hold-active' : 'hold-shape';
+        const y = rowY[hold.row] || 82;
+
+        if (hold.layout === 'pair') {
+          const lx = (w / 2) - (hold.spacing / 2) - (hold.width / 2);
+          const rx = (w / 2) + (hold.spacing / 2) - (hold.width / 2);
+          holdsMarkup += `
+            <rect x="${lx}" y="${y}" width="${hold.width}" height="${holdH}" rx="6"
+              fill="${holdFill}" stroke="#2d1e17" stroke-width="1.5" class="${cls}" data-hold-id="${hold.id}" />
+            <text x="${lx + hold.width/2}" y="${y + 19}" fill="#f8fafc" font-size="11" font-weight="bold" text-anchor="middle" pointer-events="none">${hold.depth}mm</text>
+
+            <rect x="${rx}" y="${y}" width="${hold.width}" height="${holdH}" rx="6"
+              fill="${holdFill}" stroke="#2d1e17" stroke-width="1.5" class="${cls}" data-hold-id="${hold.id}" />
+            <text x="${rx + hold.width/2}" y="${y + 19}" fill="#f8fafc" font-size="11" font-weight="bold" text-anchor="middle" pointer-events="none">${hold.depth}mm</text>
+          `;
+        } else {
+          const cx = (w / 2) - (hold.width / 2);
+          holdsMarkup += `
+            <rect x="${cx}" y="${y}" width="${hold.width}" height="${holdH}" rx="6"
+              fill="${holdFill}" stroke="#2d1e17" stroke-width="1.5" class="${cls}" data-hold-id="${hold.id}" />
+            <text x="${w/2}" y="${y + 19}" fill="#f8fafc" font-size="11" font-weight="bold" text-anchor="middle" pointer-events="none">${hold.depth}mm</text>
+          `;
+        }
+      });
+
+      return `
+        <svg viewBox="0 0 ${w} ${h}" class="board-svg">
+          <defs>
+            <linearGradient id="woodGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#d4a373"/>
+              <stop offset="100%" stop-color="#a97b50"/>
+            </linearGradient>
+            <linearGradient id="resinGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#64748b"/>
+              <stop offset="100%" stop-color="#334155"/>
+            </linearGradient>
+          </defs>
+          <path d="${outlinePath}" fill="${fillRef}" stroke="${strokeColor}" stroke-width="3" />
+          ${holdsMarkup}
+        </svg>
+      `;
+    }
+
+    /* =========================================================================
+       4. RECALIBRATED DIFFICULTY SCORING ENGINE (EASY -> EXTREME)
+       ========================================================================= */
+    function calculateWorkoutDifficulty(workout) {
+      let maxBlockScore = 0;
+
+      workout.blocks.forEach(block => {
+        const depth = block.hold ? block.hold.depth : 20;
+        const fingers = block.fingers || (block.hold ? block.hold.fingers : 4) || 4;
+        const arms = block.arms || '2-arm';
+
+        // 1. Base score from hold depth (mm)
+        let depthScore = 1.0;
+        if (depth <= 10) depthScore = 7.5;
+        else if (depth <= 14) depthScore = 6.0;
+        else if (depth <= 19) depthScore = 4.2;
+        else if (depth <= 25) depthScore = 2.6;
+        else depthScore = 1.2;
+
+        // 2. Finger count penalty
+        const fingerPenalty = { 4: 0, 3: 1.2, 2: 2.5, 1: 4.0 }[fingers] ?? 0;
+
+        // 3. Arm multiplier
+        const isOneArm = arms.startsWith('1-arm');
+        const armMult = isOneArm ? 1.45 : arms === 'hybrid' ? 1.2 : 1.0;
+
+        const score = (depthScore + fingerPenalty) * armMult;
+        if (score > maxBlockScore) maxBlockScore = score;
+      });
+
+      // 4. Protocol intensity modifier (keeps warmups & easy endurance in "Easy")
+      if (workout.category === 'warmup') maxBlockScore *= 0.5;
+      else if (workout.category === 'endurance') maxBlockScore *= 0.65;
+      else if (workout.category === 'max') maxBlockScore *= 1.15;
+
+      // Clamp between 1.0 and 10.0
+      const finalScore = Math.min(10, Math.max(1, Number(maxBlockScore.toFixed(1))));
+
+      // Assign difficulty tier
+      let tier = 'Easy';
+      if (finalScore >= 8.0) tier = 'Extreme';
+      else if (finalScore >= 6.0) tier = 'Hard';
+      else if (finalScore >= 3.5) tier = 'Moderate';
+
+      return { score: finalScore, tier };
+    }
+
+    // Helper: estimate workout duration in minutes
+    function estimateMinutes(blocks) {
+      let totalSec = 5; // initial prep
+      blocks.forEach(b => {
+        const setTime = (b.reps * b.hangSec) + (Math.max(0, b.reps - 1) * b.restSec);
+        totalSec += (b.sets * setTime) + (Math.max(0, b.sets - 1) * b.setRestSec);
+      });
+      return Math.max(1, Math.round(totalSec / 60));
+    }
+
+    /* =========================================================================
+       5. 16 DEPTH-DRIVEN WORKOUT REGIMES GENERATOR
+       ========================================================================= */
+    function generateWorkoutsForBoard(board) {
+      // Sort holds deepest (easiest) to shallowest (hardest)
+      const sorted = [...board.holds].sort((a, b) => b.depth - a.depth);
+      const deepest = sorted[0];
+      const shallowest = sorted[sorted.length - 1];
+
+      // Pick best matching holds on the active board
+      const jug = sorted.find(h => h.depth >= 28) || deepest;
+      const warmupEdge = sorted.find(h => h.depth >= 22 && h.depth <= 32) || deepest;
+      const midEdge = sorted.find(h => h.depth >= 15 && h.depth <= 22 && h.fingers >= 3) || sorted[Math.floor(sorted.length / 2)];
+      const smallEdge = sorted.find(h => h.depth <= 16 && h.fingers >= 3) || shallowest;
+      const centerHold = sorted.find(h => h.layout === 'center') || midEdge;
+      const pocket3 = sorted.find(h => h.fingers === 3) || midEdge;
+      const pocket2 = sorted.find(h => h.fingers === 2) || pocket3;
+
+      const presets = [
+        // --- WARMUPS (All Easy) ---
+        {
+          id: 'w_prog_warm', title: 'Progressive Finger Warmup', category: 'warmup', tags: ['warmup', 'short'],
+          description: `Gradual tendon recruitment from ${jug.label} (${jug.depth}mm) down to ${midEdge.label} (${midEdge.depth}mm).`,
+          blocks: [
+            { hold: jug, arms: '2-arm', fingers: 4, grip: '2-Arm Open Hand', sets: 2, reps: 3, hangSec: 8, restSec: 12, setRestSec: 45 },
+            { hold: midEdge, arms: '2-arm', fingers: 4, grip: '2-Arm Half Crimp (70%)', sets: 2, reps: 2, hangSec: 7, restSec: 15, setRestSec: 45 }
+          ]
+        },
+        {
+          id: 'w_express_warm', title: '5-Min Quick Pulley Prep', category: 'warmup', tags: ['warmup', 'short'],
+          description: `Fast pre-session activation on ${jug.label} (${jug.depth}mm). Keep feet lightly on the floor if cold.`,
+          blocks: [
+            { hold: jug, arms: '2-arm', fingers: 4, grip: '2-Arm Open Drag', sets: 2, reps: 4, hangSec: 6, restSec: 10, setRestSec: 30 }
+          ]
+        },
+        {
+          id: 'w_bloodflow', title: 'Easy Tendon Bloodflow', category: 'warmup', tags: ['warmup', 'short'],
+          description: `Low-intensity recovery hangs on ${warmupEdge.label} (${warmupEdge.depth}mm) to flush forearms.`,
+          blocks: [
+            { hold: warmupEdge, arms: '2-arm', fingers: 4, grip: '2-Arm Open Hand', sets: 3, reps: 3, hangSec: 10, restSec: 15, setRestSec: 45 }
+          ]
+        },
+
+        // --- HIGH INTENSITY / MAX HANGS ---
+        {
+          id: 'w_evalopez', title: 'Max Hangs (Eva López)', category: 'max', tags: ['max'],
+          description: `10s max-effort hangs on ${smallEdge.label} (${smallEdge.depth}mm) with full 3-minute recovery.`,
+          blocks: [
+            { hold: smallEdge, arms: '2-arm', fingers: 4, grip: '2-Arm Half Crimp', sets: 5, reps: 1, hangSec: 10, restSec: 0, setRestSec: 180 }
+          ]
+        },
+        {
+          id: 'w_express_rec', title: 'Express 10-Min Recruitment', category: 'max', tags: ['max', 'short'],
+          description: `Short, intense neural recruitment on ${smallEdge.label} (${smallEdge.depth}mm).`,
+          blocks: [
+            { hold: smallEdge, arms: '2-arm', fingers: 4, grip: '2-Arm Half Crimp', sets: 4, reps: 1, hangSec: 7, restSec: 0, setRestSec: 120 }
+          ]
+        },
+        {
+          id: 'w_min_edge', title: 'Minimum Edge Limit Hangs', category: 'max', tags: ['max'],
+          description: `Bodyweight limit hangs on your shallowest hold: ${shallowest.label} (${shallowest.depth}mm).`,
+          blocks: [
+            { hold: shallowest, arms: '2-arm', fingers: shallowest.fingers, grip: '2-Arm Half Crimp', sets: 6, reps: 1, hangSec: 8, restSec: 0, setRestSec: 180 }
+          ]
+        },
+        {
+          id: 'w_2f_power', title: '2-Finger Pocket Power', category: 'max', tags: ['max'],
+          description: `High-load 2-finger pocket strength on ${pocket2.label} (${pocket2.depth}mm).`,
+          blocks: [
+            { hold: pocket2, arms: '2-arm', fingers: 2, grip: '2-Arm Front 2 Open', sets: 4, reps: 1, hangSec: 8, restSec: 0, setRestSec: 150 }
+          ]
+        },
+
+        // --- HIGH REP / REPEATERS ---
+        {
+          id: 'w_anderson', title: '7:3 Repeaters (Anderson Bros)', category: 'repeaters', tags: ['repeaters'],
+          description: `Classic 7s hang / 3s rest hypertrophy protocol across ${midEdge.label} (${midEdge.depth}mm) and ${pocket3.label}.`,
+          blocks: [
+            { hold: midEdge, arms: '2-arm', fingers: 4, grip: '2-Arm Half Crimp', sets: 3, reps: 6, hangSec: 7, restSec: 3, setRestSec: 150 },
+            { hold: pocket3, arms: '2-arm', fingers: 3, grip: '2-Arm 3-Finger Drag', sets: 3, reps: 6, hangSec: 7, restSec: 3, setRestSec: 150 }
+          ]
+        },
+        {
+          id: 'w_beg_rep', title: 'Deep-Edge Starter Repeaters', category: 'repeaters', tags: ['repeaters', 'short'],
+          description: `Approachable 6:4 repeaters on ${jug.label} (${jug.depth}mm) to build foundational forearm capacity.`,
+          blocks: [
+            { hold: jug, arms: '2-arm', fingers: 4, grip: '2-Arm Open Hand', sets: 3, reps: 5, hangSec: 6, restSec: 4, setRestSec: 90 }
+          ]
+        },
+        {
+          id: 'w_3f_drag', title: '3-Finger Open Drag Repeaters', category: 'repeaters', tags: ['repeaters'],
+          description: `Targets open-hand sloper and pocket endurance on ${pocket3.label} (${pocket3.depth}mm).`,
+          blocks: [
+            { hold: pocket3, arms: '2-arm', fingers: 3, grip: '2-Arm 3-Finger Drag', sets: 4, reps: 5, hangSec: 7, restSec: 3, setRestSec: 120 }
+          ]
+        },
+        {
+          id: 'w_density', title: 'Density Hangs (30s Isometric)', category: 'repeaters', tags: ['repeaters'],
+          description: `Long 30-second sub-maximal hangs on ${warmupEdge.label} (${warmupEdge.depth}mm) for tendon stiffness.`,
+          blocks: [
+            { hold: warmupEdge, arms: '2-arm', fingers: 4, grip: '2-Arm Open Hand', sets: 4, reps: 1, hangSec: 30, restSec: 0, setRestSec: 120 }
+          ]
+        },
+
+        // --- 1-HAND & HYBRID ---
+        {
+          id: 'w_1arm_alt', title: '1-Arm Assisted Density', category: 'max', tags: ['max', 'one-arm'],
+          description: `Alternates Left and Right arms on ${centerHold.label} (${centerHold.depth}mm). Use pulley or band assist.`,
+          blocks: [
+            { hold: centerHold, arms: '1-arm-left', fingers: 4, grip: 'LEFT Arm Half Crimp', sets: 3, reps: 2, hangSec: 6, restSec: 20, setRestSec: 90 },
+            { hold: centerHold, arms: '1-arm-right', fingers: 4, grip: 'RIGHT Arm Half Crimp', sets: 3, reps: 2, hangSec: 6, restSec: 20, setRestSec: 90 }
+          ]
+        },
+        {
+          id: 'w_left_only', title: 'Left-Arm Imbalance Fix', category: 'max', tags: ['max', 'short', 'one-arm'],
+          description: `Dedicated Left-Arm only session on ${centerHold.label} (${centerHold.depth}mm) to catch up a weaker side.`,
+          blocks: [
+            { hold: centerHold, arms: '1-arm-left', fingers: 4, grip: 'LEFT Arm Only', sets: 4, reps: 1, hangSec: 7, restSec: 0, setRestSec: 120 }
+          ]
+        },
+        {
+          id: 'w_right_only', title: 'Right-Arm Imbalance Fix', category: 'max', tags: ['max', 'short', 'one-arm'],
+          description: `Dedicated Right-Arm only session on ${centerHold.label} (${centerHold.depth}mm).`,
+          blocks: [
+            { hold: centerHold, arms: '1-arm-right', fingers: 4, grip: 'RIGHT Arm Only', sets: 4, reps: 1, hangSec: 7, restSec: 0, setRestSec: 120 }
+          ]
+        },
+        {
+          id: 'w_hybrid', title: 'Hybrid 2-Arm + 1-Arm Contrast', category: 'max', tags: ['max', 'one-arm'],
+          description: `Pairs heavy 2-arm hangs on ${smallEdge.label} with assisted 1-arm pulls on ${centerHold.label}.`,
+          blocks: [
+            { hold: smallEdge, arms: '2-arm', fingers: 4, grip: '2-Arm Half Crimp', sets: 3, reps: 1, hangSec: 8, restSec: 0, setRestSec: 150 },
+            { hold: centerHold, arms: '1-arm-left', fingers: 4, grip: 'LEFT Arm Assisted', sets: 2, reps: 1, hangSec: 6, restSec: 0, setRestSec: 90 },
+            { hold: centerHold, arms: '1-arm-right', fingers: 4, grip: 'RIGHT Arm Assisted', sets: 2, reps: 1, hangSec: 6, restSec: 0, setRestSec: 90 }
+          ]
+        },
+
+        // --- LONG ENDURANCE (25m+) ---
+        {
+          id: 'w_aerocap', title: 'Long AeroCap Arcing', category: 'endurance', tags: ['long'],
+          description: `Low-intensity capillary endurance on ${jug.label} (${jug.depth}mm). Keep feet on a chair to stay under pump.`,
+          blocks: [
+            { hold: jug, arms: '2-arm', fingers: 4, grip: '2-Arm Foot-Assisted', sets: 3, reps: 8, hangSec: 30, restSec: 15, setRestSec: 120 }
+          ]
+        }
+      ];
+
+      // Attach computed duration to each preset
+      presets.forEach(w => {
+        const mins = estimateMinutes(w.blocks);
+        w.duration = `${mins} min`;
+        if (mins < 15 && !w.tags.includes('short')) w.tags.push('short');
+        if (mins >= 25 && !w.tags.includes('long')) w.tags.push('long');
+      });
+
+      // Merge with user's saved custom workouts
+      const userCustom = (getProfileData().customWorkouts || []).map(cw => {
+        // Resolve hold references against active board (fallback to midEdge)
+        const resolvedBlocks = cw.blocks.map(b => ({
+          ...b,
+          hold: board.holds.find(h => h.id === b.holdId) || midEdge
+        }));
+        return { ...cw, blocks: resolvedBlocks };
+      });
+
+      return [...userCustom, ...presets];
+    }
+
+    /* =========================================================================
+       6. SIMPLIFIED HOME WORKOUT CARD RENDERER
+       ========================================================================= */
+    function renderWorkoutCard(w, diff, isFav, isDone) {
+      const firstBlock = w.blocks[0];
+      const depth = firstBlock.hold ? firstBlock.hold.depth : 20;
+      const armLabel = firstBlock.arms === '1-arm-left' ? 'Left Arm'
+                     : firstBlock.arms === '1-arm-right' ? 'Right Arm'
+                     : firstBlock.arms === '1-arm' ? '1-Arm' : '2-Arm';
+
+      return `
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">${isDone ? '✓ ' : ''}${w.title}</span>
+            <span class="tag diff-${diff.tier.toLowerCase()}">${diff.tier} · ${diff.score}</span>
+          </div>
+
+          <div class="card-meta">
+            <span>${w.duration}</span>
+            <span>•</span>
+            <span>${depth}mm</span>
+            <span>•</span>
+            <span>${armLabel}</span>
+          </div>
+
+          <details class="card-details">
+            <summary>Details</summary>
+            <p class="muted">${w.description}</p>
+          </details>
+
+          <div class="card-actions">
+            <button class="btn btn-primary" data-start="${w.id}">Start</button>
+            <button class="btn btn-secondary btn-icon" data-fav="${w.id}" aria-label="Save favorite">
+              ${isFav ? '★' : '☆'}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    /* =========================================================================
+       7. LIVE TIMER & WEB AUDIO BEEP ENGINE
+       ========================================================================= */
+    let audioCtx = null;
+    let timerInterval = null;
+    let isPaused = false;
+    let activeWorkoutId = null;
+    let workoutSteps = [];
+    let currentStepIdx = 0;
+    let secondsRemaining = 0;
+
+    // Synthesize a clean beep using Web Audio API (no external audio files needed)
+    function playBeep(freq = 880, duration = 0.14, type = 'sine') {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    // Flatten a workout's blocks into a linear array of timer steps and start
+    function startWorkout(workoutId) {
+      // Unlock audio on user tap
+      playBeep(440, 0.05);
+
+      const board = getActiveBoard();
+      const workout = generateWorkoutsForBoard(board).find(w => w.id === workoutId);
+      if (!workout) return;
+
+      activeWorkoutId = workout.id;
+      workoutSteps = [{
+        phase: 'PREP',
+        duration: 5,
+        hold: workout.blocks[0].hold,
+        grip: workout.blocks[0].grip,
+        instruction: `Next: ${workout.blocks[0].hold.label} (${workout.blocks[0].hold.depth}mm)`,
+        setInfo: `1 / ${workout.blocks[0].sets}`,
+        repInfo: `1 / ${workout.blocks[0].reps}`
+      }];
+
+      workout.blocks.forEach((b, bIdx) => {
+        for (let s = 1; s <= b.sets; s++) {
+          for (let r = 1; r <= b.reps; r++) {
+            workoutSteps.push({
+              phase: 'HANG',
+              duration: b.hangSec,
+              hold: b.hold,
+              grip: b.grip,
+              instruction: `PULL: ${b.hold.label} (${b.hold.depth}mm)`,
+              setInfo: `${s} / ${b.sets}`,
+              repInfo: `${r} / ${b.reps}`
+            });
+
+            if (r < b.reps && b.restSec > 0) {
+              workoutSteps.push({
+                phase: 'REST',
+                duration: b.restSec,
+                hold: b.hold,
+                grip: b.grip,
+                instruction: 'Shake out — next rep soon',
+                setInfo: `${s} / ${b.sets}`,
+                repInfo: `${r} / ${b.reps}`
+              });
+            }
+          }
+
+          if (s < b.sets || bIdx < workout.blocks.length - 1) {
+            const nextHold = s < b.sets ? b.hold : workout.blocks[bIdx + 1].hold;
+            workoutSteps.push({
+              phase: 'REST',
+              duration: b.setRestSec,
+              hold: nextHold,
+              grip: s < b.sets ? b.grip : workout.blocks[bIdx + 1].grip,
+              instruction: `Set Rest — Next: ${nextHold.label} (${nextHold.depth}mm)`,
+              setInfo: `${s} / ${b.sets}`,
+              repInfo: 'Done'
+            });
+          }
+        }
+      });
+
+      currentStepIdx = 0;
+      isPaused = false;
+      document.getElementById('btn-timer-toggle').innerText = 'Pause';
+      document.getElementById('bottom-nav').style.display = 'none';
+      switchView('timer');
+      loadStep(0);
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(tickTimer, 1000);
+    }
+
+    // Load a specific step into the timer UI
+    function loadStep(idx) {
+      if (idx >= workoutSteps.length) {
+        finishWorkout();
+        return;
+      }
+      const step = workoutSteps[idx];
+      secondsRemaining = step.duration;
+
+      const box = document.getElementById('timer-box');
+      box.className = 'timer-display ' + (
+        step.phase === 'PREP' ? 'state-prep' :
+        step.phase === 'HANG' ? 'state-hang' : 'state-rest'
+      );
+
+      document.getElementById('t-phase').innerText = step.phase;
+      document.getElementById('t-instruction').innerText = step.instruction;
+      document.getElementById('t-set').innerText = step.setInfo;
+      document.getElementById('t-rep').innerText = step.repInfo;
+      document.getElementById('t-grip').innerText = step.grip;
+
+      // Highlight active hold on board SVG
+      document.getElementById('timer-board-svg').innerHTML = renderBoardSVG(getActiveBoard(), [step.hold.id]);
+      updateClockDisplay();
+
+      if (step.phase === 'HANG') playBeep(1046, 0.25, 'triangle');
+      else playBeep(523, 0.14, 'sine');
+    }
+
+    // 1-second timer tick
+    function tickTimer() {
+      if (isPaused) return;
+      secondsRemaining--;
+      if (secondsRemaining <= 3 && secondsRemaining > 0) playBeep(660, 0.1);
+      if (secondsRemaining <= 0) {
+        currentStepIdx++;
+        loadStep(currentStepIdx);
+      } else {
+        updateClockDisplay();
+      }
+    }
+
+    // Format MM:SS clock
+    function updateClockDisplay() {
+      const m = Math.floor(secondsRemaining / 60).toString().padStart(2, '0');
+      const s = (secondsRemaining % 60).toString().padStart(2, '0');
+      document.getElementById('t-clock').innerText = `${m}:${s}`;
+    }
+
+    // Mark workout complete and save tick to profile
+    function finishWorkout() {
+      clearInterval(timerInterval);
+      playBeep(880, 0.4, 'triangle');
+      const box = document.getElementById('timer-box');
+      box.className = 'timer-display state-done';
+      document.getElementById('t-phase').innerText = 'COMPLETE';
+      document.getElementById('t-clock').innerText = 'DONE';
+      document.getElementById('t-instruction').innerText = 'Workout logged to your profile.';
+
+      const prof = getProfileData();
+      if (activeWorkoutId && !prof.completed.includes(activeWorkoutId)) {
+        prof.completed.push(activeWorkoutId);
+        saveProfiles();
+      }
+    }
+
+    /* =========================================================================
+       8. VIEW SWITCHING & MASTER RENDER
+       ========================================================================= */
+    function switchView(viewName) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(`view-${viewName}`).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.view === viewName);
+      });
+    }
+
+    // Re-render all dynamic views from current state
+    function refreshApp() {
+      const board = getActiveBoard();
+      const prof = getProfileData();
+
+      // Update header pills
+      document.getElementById('active-board-label').innerText = board.name;
+      document.getElementById('header-user-pill').innerText = currentUser || 'Guest';
+
+      // Render Home Board SVG
+      document.getElementById('workout-board-svg').innerHTML = renderBoardSVG(board);
+
+      // Render Filtered Workout Cards
+      const allWorkouts = generateWorkoutsForBoard(board);
+      const filtered = allWorkouts.filter(w => {
+        if (activeFilter === 'all') return true;
+        if (activeFilter === 'favorites') return prof.favWorkouts.includes(w.id);
+        return w.category === activeFilter || (w.tags && w.tags.includes(activeFilter));
+      });
+
+      document.getElementById('workout-list').innerHTML = filtered.length
+        ? filtered.map(w => renderWorkoutCard(
+            w,
+            calculateWorkoutDifficulty(w),
+            prof.favWorkouts.includes(w.id),
+            prof.completed.includes(w.id)
+          )).join('')
+        : `<div class="card"><p class="muted" style="text-align:center;">No workouts match this filter.</p></div>`;
+
+      // Populate Hold Selector in Custom Workout Builder
+      document.getElementById('cw-hold').innerHTML = board.holds.map(h =>
+        `<option value="${h.id}">${h.label} (${h.depth}mm · ${h.fingers}F)</option>`
+      ).join('');
+
+      // Render Boards Selector List
+      document.getElementById('board-selector-list').innerHTML = getAllBoards().map(b => `
+        <div class="card" style="cursor:pointer; border-color:${b.id === board.id ? 'var(--primary)' : 'var(--surface-light)'};" data-select-board="${b.id}">
+          <div class="card-header">
+            <span class="card-title">${b.name} ${b.id === board.id ? '✓' : ''}</span>
+            <span class="tag">${b.holds.length} Holds</span>
+          </div>
+          <p class="muted">Depths: ${[...new Set(b.holds.map(h => h.depth + 'mm'))].join(', ')}</p>
+        </div>
+      `).join('');
+
+      // Render Profile View
+      renderProfileView(allWorkouts);
+    }
+
+    // Render Profile Login or Dashboard
+    function renderProfileView(allWorkouts) {
+      const authCard = document.getElementById('profile-auth-card');
+      const dash = document.getElementById('profile-dashboard');
+
+      if (!currentUser) {
+        authCard.style.display = 'block';
+        dash.style.display = 'none';
+        return;
+      }
+
+      const prof = getProfileData();
+      authCard.style.display = 'none';
+      dash.style.display = 'block';
+      document.getElementById('prof-username').innerText = currentUser;
+      document.getElementById('prof-stats').innerHTML = `
+        <span>${prof.completed.length} Completed</span>
+        <span>•</span>
+        <span>${prof.favWorkouts.length} Saved</span>
+        <span>•</span>
+        <span>${prof.customBoards.length} Custom Boards</span>
+      `;
+
+      document.getElementById('prof-completed-list').innerHTML = prof.completed.length
+        ? prof.completed.map(id => {
+            const w = allWorkouts.find(x => x.id === id);
+            return `<div class="list-row"><span>✓ ${w ? w.title : id}</span></div>`;
+          }).join('')
+        : `<div class="card"><p class="muted">Complete a workout timer to tick it off here.</p></div>`;
+    }
+
+    /* =========================================================================
+       9. CUSTOM BOARD BUILDER HELPERS
+       ========================================================================= */
+    function renderBuilderPreview() {
+      const tempBoard = {
+        shape: document.getElementById('cb-shape').value,
+        material: document.getElementById('cb-material').value,
+        radius: parseInt(document.getElementById('cb-radius').value, 10),
+        holds: builderHolds
+      };
+      document.getElementById('builder-preview-svg').innerHTML = renderBoardSVG(tempBoard);
+      document.getElementById('custom-holds-list').innerHTML = builderHolds.map((h, i) => `
+        <div class="list-row">
+          <span><strong>${h.label}</strong> (${h.layout})</span>
+          <button class="btn btn-danger btn-sm" data-rm-hold="${i}">Remove</button>
+        </div>
+      `).join('');
+    }
+
+    function updateBuilderSliders() {
+      const depth = document.getElementById('hold-depth').value;
+      const width = parseInt(document.getElementById('hold-width').value, 10);
+      const spacing = document.getElementById('hold-spacing').value;
+      const layout = document.getElementById('hold-layout').value;
+      const radius = document.getElementById('cb-radius').value;
+
+      document.getElementById('val-depth').innerText = `${depth}mm`;
+      document.getElementById('val-width').innerText = width < 45 ? '1F' : width < 65 ? '2F' : width < 90 ? '3F' : '4F';
+      document.getElementById('val-spacing').innerText = `${Math.round(spacing / 10)}cm`;
+      document.getElementById('val-cb-radius').innerText = `${radius}px`;
+      document.getElementById('spacing-group').style.display = layout === 'pair' ? 'block' : 'none';
+      renderBuilderPreview();
+    }
+
+    /* =========================================================================
+       10. CUSTOM WORKOUT BUILDER HELPERS
+       ========================================================================= */
+    function renderCustomWorkoutBlocks() {
+      const board = getActiveBoard();
+      const resolved = customWorkoutBlocks.map(b => ({
+        ...b,
+        hold: board.holds.find(h => h.id === b.holdId) || board.holds[0]
+      }));
+
+      // Update live difficulty badge
+      const diff = resolved.length
+        ? calculateWorkoutDifficulty({ category: document.getElementById('cw-category').value, blocks: resolved })
+        : { score: 1.0, tier: 'Easy' };
+      const badge = document.getElementById('cw-live-diff');
+      badge.className = `tag diff-${diff.tier.toLowerCase()}`;
+      badge.innerText = `${diff.tier} · ${diff.score}`;
+
+      document.getElementById('cw-blocks-list').innerHTML = resolved.map((b, i) => `
+        <div class="list-row">
+          <span><strong>${b.hold.label}</strong> · ${b.sets}×${b.reps} (${b.hangSec}s) · ${b.arms}</span>
+          <button class="btn btn-danger btn-sm" data-rm-cw-block="${i}">Del</button>
+        </div>
+      `).join('');
+    }
+
+    /* =========================================================================
+       11. CENTRALIZED EVENT DELEGATION (RELIABLE MOBILE TOUCH HANDLING)
+       ========================================================================= */
+    // Bottom navigation tabs
+    document.getElementById('bottom-nav').addEventListener('click', e => {
+      const btn = e.target.closest('.nav-btn');
+      if (btn) switchView(btn.dataset.view);
+    });
+
+    // Header user pill shortcut to Profile tab
+    document.getElementById('header-user-pill').addEventListener('click', () => switchView('profile'));
+
+    // Workout category filter pills
+    document.getElementById('workout-filters').addEventListener('click', e => {
+      const pill = e.target.closest('.filter-pill');
+      if (!pill) return;
+      activeFilter = pill.dataset.filter;
+      document.querySelectorAll('.filter-pill').forEach(p => p.classList.toggle('active', p === pill));
+      refreshApp();
+    });
+
+    // Tap hold on Home SVG to inspect
+    document.getElementById('workout-board-svg').addEventListener('click', e => {
+      const holdEl = e.target.closest('[data-hold-id]');
+      if (!holdEl) return;
+      const hold = getActiveBoard().holds.find(h => h.id === holdEl.dataset.holdId);
+      if (hold) {
+        document.getElementById('hold-inspector').innerText =
+          `${hold.label} — ${hold.depth}mm deep • ${hold.fingers}-Finger • ${hold.layout === 'pair' ? Math.round(hold.spacing / 10) + 'cm spacing' : 'Center Hold'}`;
+      }
+    });
+
+    // Start workout or toggle favorite on Workout list
+    document.getElementById('workout-list').addEventListener('click', e => {
+      const startBtn = e.target.closest('[data-start]');
+      if (startBtn) {
+        startWorkout(startBtn.dataset.start);
+        return;
+      }
+      const favBtn = e.target.closest('[data-fav]');
+      if (favBtn) {
+        const id = favBtn.dataset.fav;
+        const prof = getProfileData();
+        if (prof.favWorkouts.includes(id)) prof.favWorkouts = prof.favWorkouts.filter(x => x !== id);
+        else prof.favWorkouts.push(id);
+        saveProfiles();
+        refreshApp();
+      }
+    });
+
+    // Timer controls
+    document.getElementById('btn-timer-toggle').addEventListener('click', () => {
+      isPaused = !isPaused;
+      document.getElementById('btn-timer-toggle').innerText = isPaused ? 'Resume' : 'Pause';
+    });
+    document.getElementById('btn-timer-skip').addEventListener('click', () => {
+      currentStepIdx++;
+      loadStep(currentStepIdx);
+    });
+    document.getElementById('btn-timer-exit').addEventListener('click', () => {
+      clearInterval(timerInterval);
+      document.getElementById('bottom-nav').style.display = 'grid';
+      switchView('workouts');
+      refreshApp();
+    });
+
+    // Select hangboard
+    document.getElementById('board-selector-list').addEventListener('click', e => {
+      const card = e.target.closest('[data-select-board]');
+      if (!card) return;
+      activeBoardId = card.dataset.selectBoard;
+      localStorage.setItem('cl_active_board', activeBoardId);
+      refreshApp();
+      switchView('workouts');
+    });
+
+    // Custom Board Builder listeners
+    ['hold-depth', 'hold-width', 'hold-spacing', 'hold-layout', 'cb-shape', 'cb-material', 'cb-radius'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateBuilderSliders);
+    });
+
+    document.getElementById('btn-add-hold').addEventListener('click', () => {
+      const row = parseInt(document.getElementById('hold-row').value, 10);
+      const layout = document.getElementById('hold-layout').value;
+      const depth = parseInt(document.getElementById('hold-depth').value, 10);
+      const width = parseInt(document.getElementById('hold-width').value, 10);
+      const spacing = parseInt(document.getElementById('hold-spacing').value, 10);
+      const fingers = width < 45 ? 1 : width < 65 ? 2 : width < 90 ? 3 : 4;
+
+      builderHolds.push({
+        id: 'h_' + Date.now(),
+        label: `Row ${row + 1} ${depth}mm ${fingers}F`,
+        row, layout, depth, width, spacing, fingers
+      });
+      renderBuilderPreview();
+    });
+
+    document.getElementById('custom-holds-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-rm-hold]');
+      if (!btn) return;
+      builderHolds.splice(parseInt(btn.dataset.rmHold, 10), 1);
+      renderBuilderPreview();
+    });
+
+    document.getElementById('btn-save-board').addEventListener('click', () => {
+      if (!builderHolds.length) return alert('Add at least one hold first.');
+      const newBoard = {
+        id: 'cb_' + Date.now(),
+        name: document.getElementById('cb-name').value.trim() || 'Custom Board',
+        brand: 'Custom',
+        shape: document.getElementById('cb-shape').value,
+        material: document.getElementById('cb-material').value,
+        radius: parseInt(document.getElementById('cb-radius').value, 10),
+        holds: [...builderHolds]
+      };
+      getProfileData().customBoards.push(newBoard);
+      saveProfiles();
+      activeBoardId = newBoard.id;
+      localStorage.setItem('cl_active_board', activeBoardId);
+      builderHolds = [];
+      document.getElementById('cb-name').value = '';
+      renderBuilderPreview();
+      refreshApp();
+      switchView('workouts');
+    });
+
+    // Custom Workout Builder listeners
+    document.getElementById('cw-category').addEventListener('change', renderCustomWorkoutBlocks);
+
+    document.getElementById('btn-add-cw-block').addEventListener('click', () => {
+      const arms = document.getElementById('cw-arms').value;
+      const fingers = parseInt(document.getElementById('cw-fingers').value, 10);
+      customWorkoutBlocks.push({
+        holdId: document.getElementById('cw-hold').value,
+        arms,
+        fingers,
+        grip: `${arms} ${fingers}F`,
+        sets: parseInt(document.getElementById('cw-sets').value, 10) || 3,
+        reps: parseInt(document.getElementById('cw-reps').value, 10) || 4,
+        hangSec: parseInt(document.getElementById('cw-hang').value, 10) || 7,
+        restSec: parseInt(document.getElementById('cw-rest').value, 10) || 3,
+        setRestSec: parseInt(document.getElementById('cw-set-rest').value, 10) || 120
+      });
+      renderCustomWorkoutBlocks();
+    });
+
+    document.getElementById('cw-blocks-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-rm-cw-block]');
+      if (!btn) return;
+      customWorkoutBlocks.splice(parseInt(btn.dataset.rmCwBlock, 10), 1);
+      renderCustomWorkoutBlocks();
+    });
+
+    document.getElementById('btn-save-cw').addEventListener('click', () => {
+      if (!customWorkoutBlocks.length) return alert('Add at least one block first.');
+      const cat = document.getElementById('cw-category').value;
+      const mins = estimateMinutes(customWorkoutBlocks);
+      const newWorkout = {
+        id: 'cw_' + Date.now(),
+        title: document.getElementById('cw-title').value.trim() || 'Custom Workout',
+        category: cat,
+        tags: [cat, mins < 15 ? 'short' : mins >= 25 ? 'long' : ''],
+        duration: `${mins} min`,
+        description: `Custom ${customWorkoutBlocks.length}-block session.`,
+        blocks: [...customWorkoutBlocks]
+      };
+      getProfileData().customWorkouts.push(newWorkout);
+      saveProfiles();
+      customWorkoutBlocks = [];
+      document.getElementById('cw-title').value = '';
+      renderCustomWorkoutBlocks();
+      refreshApp();
+      switchView('workouts');
+    });
+
+    // Profile Auth listeners (Username + Password only, remembered locally)
+    document.getElementById('btn-register').addEventListener('click', () => {
+      const u = document.getElementById('auth-user').value.trim();
+      const p = document.getElementById('auth-pass').value;
+      const msg = document.getElementById('auth-msg');
+      if (!u || !p) return (msg.innerText = 'Enter both a username and password.');
+      if (profiles[u]) return (msg.innerText = 'Username already exists.');
+
+      profiles[u] = { password: p, customBoards: [], customWorkouts: [], favWorkouts: [], favBoards: [], completed: [] };
+      currentUser = u;
+      localStorage.setItem('cl_current_user', u);
+      saveProfiles();
+      msg.innerText = '';
+      refreshApp();
+    });
+
+    document.getElementById('btn-login').addEventListener('click', () => {
+      const u = document.getElementById('auth-user').value.trim();
+      const p = document.getElementById('auth-pass').value;
+      const msg = document.getElementById('auth-msg');
+      if (!profiles[u] || profiles[u].password !== p) {
+        return (msg.innerText = 'Invalid username or password.');
+      }
+      currentUser = u;
+      localStorage.setItem('cl_current_user', u);
+      msg.innerText = '';
+      refreshApp();
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', () => {
+      currentUser = null;
+      localStorage.removeItem('cl_current_user');
+      refreshApp();
+    });
+
+    /* =========================================================================
+       12. INITIAL BOOT
+       ========================================================================= */
+    updateBuilderSliders();
+    refreshApp();
+  </script>
+</body>
+</html>
