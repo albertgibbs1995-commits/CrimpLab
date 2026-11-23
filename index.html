@@ -861,11 +861,13 @@
   </div>
 
   <script>
-    /* =========================================================================
-       1. PRE-LOADED HANGBOARD DATABASE
+  /* =========================================================================
+       1. PRE-LOADED HANGBOARD DATABASE (Manufacturer Depths & Scaled Spacing)
+       Canvas width = 500px. Spacing is center-to-center scaled to board width.
        ========================================================================= */
     const PRESET_BOARDS = [
       {
+        // Real dimensions: 580mm wide x 150mm high
         id: 'bm1000',
         name: 'Beastmaker 1000',
         brand: 'Beastmaker',
@@ -873,17 +875,18 @@
         material: 'wood',
         radius: 14,
         holds: [
-          { id: 'jugs', label: 'Top Jugs', row: 0, layout: 'pair', depth: 40, width: 120, spacing: 350, fingers: 4 },
-          { id: 'sloper35', label: '35° Slopers', row: 0, layout: 'pair', depth: 32, width: 105, spacing: 140, fingers: 4 },
-          { id: 'deep4', label: 'Deep 4-Finger', row: 1, layout: 'pair', depth: 30, width: 100, spacing: 360, fingers: 4 },
-          { id: 'mid4', label: 'Outer 4-Finger', row: 1, layout: 'pair', depth: 20, width: 100, spacing: 165, fingers: 4 },
-          { id: 'center4', label: 'Center Deep', row: 1, layout: 'center', depth: 35, width: 90, spacing: 0, fingers: 4 },
-          { id: 'small4', label: 'Bottom Edge', row: 2, layout: 'pair', depth: 15, width: 95, spacing: 355, fingers: 4 },
-          { id: 'pocket3', label: '3-Finger Pocket', row: 2, layout: 'pair', depth: 22, width: 68, spacing: 180, fingers: 3 },
-          { id: 'pocket2', label: '2-Finger Pocket', row: 2, layout: 'center', depth: 24, width: 52, spacing: 0, fingers: 2 }
+          { id: 'jugs',     label: 'Top Jugs',         row: 0, layout: 'pair',   depth: 45, width: 105, spacing: 365, fingers: 4 },
+          { id: 'sloper35', label: '35° Slopers',      row: 0, layout: 'pair',   depth: 35, width: 85,  spacing: 165, fingers: 4 },
+          { id: 'deep4',    label: 'Deep 4-Finger',    row: 1, layout: 'pair',   depth: 45, width: 88,  spacing: 375, fingers: 4 },
+          { id: 'deep3',    label: 'Deep 3-Finger',    row: 1, layout: 'pair',   depth: 45, width: 62,  spacing: 205, fingers: 3 },
+          { id: 'center4',  label: 'Center Jug',       row: 1, layout: 'center', depth: 45, width: 86,  spacing: 0,   fingers: 4 },
+          { id: 'med4',     label: 'Medium 4-Finger',  row: 2, layout: 'pair',   depth: 20, width: 88,  spacing: 375, fingers: 4 },
+          { id: 'small4',   label: 'Small 4-Finger',   row: 2, layout: 'pair',   depth: 15, width: 82,  spacing: 190, fingers: 4 },
+          { id: 'med2',     label: 'Medium 2-Finger',  row: 2, layout: 'center', depth: 25, width: 46,  spacing: 0,   fingers: 2 }
         ]
       },
       {
+        // Real dimensions: 580mm wide x 150mm high
         id: 'bm2000',
         name: 'Beastmaker 2000',
         brand: 'Beastmaker',
@@ -891,17 +894,18 @@
         material: 'wood',
         radius: 14,
         holds: [
-          { id: 'sloper45', label: '45° Slopers', row: 0, layout: 'pair', depth: 28, width: 115, spacing: 355, fingers: 4 },
-          { id: 'sloper30', label: '30° Slopers', row: 0, layout: 'pair', depth: 34, width: 105, spacing: 145, fingers: 4 },
-          { id: 'mid4', label: 'Medium 4-Finger', row: 1, layout: 'pair', depth: 18, width: 98, spacing: 360, fingers: 4 },
-          { id: 'incut3', label: '3-Finger Drag', row: 1, layout: 'pair', depth: 22, width: 70, spacing: 170, fingers: 3 },
-          { id: 'centerjug', label: 'Center Warmup', row: 1, layout: 'center', depth: 32, width: 88, spacing: 0, fingers: 4 },
-          { id: 'micro4', label: 'Small 4-Finger', row: 2, layout: 'pair', depth: 12, width: 92, spacing: 355, fingers: 4 },
-          { id: 'back2', label: '2-Finger Pocket', row: 2, layout: 'pair', depth: 18, width: 50, spacing: 180, fingers: 2 },
-          { id: 'mono', label: 'Center Mono', row: 2, layout: 'center', depth: 25, width: 32, spacing: 0, fingers: 1 }
+          { id: 'sloper45', label: '45° Slopers',      row: 0, layout: 'pair',   depth: 28, width: 100, spacing: 365, fingers: 4 },
+          { id: 'sloper35', label: '35° Slopers',      row: 0, layout: 'pair',   depth: 34, width: 88,  spacing: 165, fingers: 4 },
+          { id: 'med4',     label: 'Medium 4-Finger',  row: 1, layout: 'pair',   depth: 18, width: 88,  spacing: 375, fingers: 4 },
+          { id: 'med3',     label: '3-Finger Pocket',  row: 1, layout: 'pair',   depth: 22, width: 62,  spacing: 205, fingers: 3 },
+          { id: 'center4',  label: 'Center 4-Finger',  row: 1, layout: 'center', depth: 33, width: 86,  spacing: 0,   fingers: 4 },
+          { id: 'small4',   label: 'Small 4-Finger',   row: 2, layout: 'pair',   depth: 14, width: 86,  spacing: 375, fingers: 4 },
+          { id: 'small2',   label: '2-Finger Pocket',  row: 2, layout: 'pair',   depth: 15, width: 46,  spacing: 195, fingers: 2 },
+          { id: 'mono',     label: 'Center Mono',      row: 2, layout: 'center', depth: 25, width: 28,  spacing: 0,   fingers: 1 }
         ]
       },
       {
+        // Real dimensions: 610mm wide x 152mm high
         id: 'tension-grindstone',
         name: 'Tension Grindstone Mk2',
         brand: 'Tension',
@@ -909,15 +913,16 @@
         material: 'wood',
         radius: 10,
         holds: [
-          { id: 'jug', label: 'Top Jugs', row: 0, layout: 'pair', depth: 38, width: 135, spacing: 335, fingers: 4 },
-          { id: 'c25', label: '25mm Edge', row: 1, layout: 'pair', depth: 25, width: 110, spacing: 345, fingers: 4 },
-          { id: 'c20', label: '20mm Edge', row: 1, layout: 'pair', depth: 20, width: 100, spacing: 140, fingers: 4 },
-          { id: 'c15', label: '15mm Edge', row: 2, layout: 'pair', depth: 15, width: 110, spacing: 345, fingers: 4 },
-          { id: 'c10', label: '10mm Micro Edge', row: 2, layout: 'pair', depth: 10, width: 100, spacing: 140, fingers: 4 },
-          { id: 'center15', label: 'Center 15mm', row: 2, layout: 'center', depth: 15, width: 82, spacing: 0, fingers: 4 }
+          { id: 'jug',      label: 'Top Jugs',         row: 0, layout: 'pair',   depth: 35, width: 115, spacing: 355, fingers: 4 },
+          { id: 'c25',      label: '25mm Edge',        row: 1, layout: 'pair',   depth: 25, width: 95,  spacing: 370, fingers: 4 },
+          { id: 'c20',      label: '20mm Edge',        row: 1, layout: 'pair',   depth: 20, width: 90,  spacing: 165, fingers: 4 },
+          { id: 'c15',      label: '15mm Edge',        row: 2, layout: 'pair',   depth: 15, width: 95,  spacing: 370, fingers: 4 },
+          { id: 'c10',      label: '10mm Edge',        row: 2, layout: 'pair',   depth: 10, width: 90,  spacing: 165, fingers: 4 },
+          { id: 'center20', label: 'Center 20mm',      row: 1, layout: 'center', depth: 20, width: 78,  spacing: 0,   fingers: 4 }
         ]
       },
       {
+        // Real dimensions: 500mm wide x 145mm high (3 full-width rungs)
         id: 'lattice-triple',
         name: 'Lattice Triple Rung',
         brand: 'Lattice',
@@ -925,12 +930,13 @@
         material: 'wood',
         radius: 8,
         holds: [
-          { id: 'r30', label: '30mm Warmup Rung', row: 0, layout: 'pair', depth: 30, width: 170, spacing: 255, fingers: 4 },
-          { id: 'r20', label: '20mm Assessment', row: 1, layout: 'pair', depth: 20, width: 170, spacing: 255, fingers: 4 },
-          { id: 'r10', label: '10mm Max Rung', row: 2, layout: 'pair', depth: 10, width: 170, spacing: 255, fingers: 4 }
+          { id: 'r30',      label: '30mm Rung',        row: 0, layout: 'center', depth: 30, width: 440, spacing: 0,   fingers: 4 },
+          { id: 'r20',      label: '20mm Assessment',  row: 1, layout: 'center', depth: 20, width: 440, spacing: 0,   fingers: 4 },
+          { id: 'r10',      label: '10mm Max Rung',    row: 2, layout: 'center', depth: 10, width: 440, spacing: 0,   fingers: 4 }
         ]
       },
       {
+        // Real dimensions: 711mm wide x 222mm high
         id: 'metolius-sim3d',
         name: 'Metolius Simulator 3D',
         brand: 'Metolius',
@@ -938,12 +944,12 @@
         material: 'resin',
         radius: 18,
         holds: [
-          { id: 'mjug', label: 'Top Jugs', row: 0, layout: 'pair', depth: 42, width: 130, spacing: 345, fingers: 4 },
-          { id: 'mslope', label: 'Center Sloper', row: 0, layout: 'center', depth: 35, width: 115, spacing: 0, fingers: 4 },
-          { id: 'medge25', label: 'Deep 4-Finger', row: 1, layout: 'pair', depth: 25, width: 105, spacing: 355, fingers: 4 },
-          { id: 'mpock3', label: '3-Finger Pocket', row: 1, layout: 'pair', depth: 20, width: 72, spacing: 165, fingers: 3 },
-          { id: 'medge14', label: 'Small Crimp', row: 2, layout: 'pair', depth: 14, width: 95, spacing: 350, fingers: 4 },
-          { id: 'mpock2', label: '2-Finger Pocket', row: 2, layout: 'pair', depth: 18, width: 52, spacing: 170, fingers: 2 }
+          { id: 'mjug',     label: 'Top Jugs',         row: 0, layout: 'pair',   depth: 45, width: 105, spacing: 365, fingers: 4 },
+          { id: 'mslope',   label: 'Center Sloper',    row: 0, layout: 'center', depth: 35, width: 110, spacing: 0,   fingers: 4 },
+          { id: 'medge35',  label: 'Deep 4-Finger',    row: 1, layout: 'pair',   depth: 35, width: 85,  spacing: 380, fingers: 4 },
+          { id: 'mpock3',   label: '3-Finger Pocket',  row: 1, layout: 'pair',   depth: 28, width: 60,  spacing: 195, fingers: 3 },
+          { id: 'medge12',  label: 'Small Crimp',      row: 2, layout: 'pair',   depth: 12, width: 82,  spacing: 375, fingers: 4 },
+          { id: 'mpock2',   label: '2-Finger Pocket',  row: 2, layout: 'pair',   depth: 25, width: 44,  spacing: 195, fingers: 2 }
         ]
       }
     ];
